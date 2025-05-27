@@ -8,10 +8,49 @@ const filterable = [
 
 export const createProperty = async (req: any, res: Response) => {
   try {
-    const property = await Property.create({ ...req.body, createdBy: req.user.id });
+    // Validate required fields
+    const requiredFields = ['title', 'type', 'price', 'state', 'city', 'areaSqFt', 'bedrooms', 'bathrooms'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        message: 'Missing required fields', 
+        fields: missingFields 
+      });
+    }
+
+    // Validate numeric fields
+    const numericFields = ['price', 'areaSqFt', 'bedrooms', 'bathrooms', 'rating'];
+    const invalidNumericFields = numericFields.filter(field => 
+      req.body[field] !== undefined && isNaN(Number(req.body[field]))
+    );
+
+    if (invalidNumericFields.length > 0) {
+      return res.status(400).json({ 
+        message: 'Invalid numeric fields', 
+        fields: invalidNumericFields 
+      });
+    }
+
+    // Convert numeric fields
+    const propertyData = {
+      ...req.body,
+      price: Number(req.body.price),
+      areaSqFt: Number(req.body.areaSqFt),
+      bedrooms: Number(req.body.bedrooms),
+      bathrooms: Number(req.body.bathrooms),
+      rating: req.body.rating ? Number(req.body.rating) : undefined,
+      createdBy: req.user.id
+    };
+
+    const property = await Property.create(propertyData);
     res.status(201).json(property);
-  } catch (err) {
-    res.status(400).json({ message: 'Create property error' });
+  } catch (err: any) {
+    console.error('Create property error:', err);
+    res.status(400).json({ 
+      message: 'Create property error', 
+      error: err.message 
+    });
   }
 };
 
