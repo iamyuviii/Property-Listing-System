@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { errorHandler } from './middlewares/error.middleware';
 import authRoutes from './routes/auth.routes';
 import propertyRoutes from './routes/property.routes';
-import favoriteRoutes from './routes/favorite.routes';
+import favoriteRoutes from './routes/fav.routes';
 import recommendationRoutes from './routes/recommendation.routes';
 
 dotenv.config();
