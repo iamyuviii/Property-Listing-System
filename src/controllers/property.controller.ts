@@ -173,11 +173,18 @@ export const updateProperty = async (req: any, res: Response) => {
     const property = await Property.findById(req.params.id);
     if (!property) return res.status(404).json({ message: 'Not found' });
     if (property.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Forbidden' });
+
+    // Update property fields based on request body
     Object.assign(property, req.body);
+
     await property.save();
     res.json(property);
-  } catch (err) {
-    res.status(400).json({ message: 'Update property error' });
+  } catch (err: any) {
+    console.error('Update property error:', err);
+    res.status(400).json({
+      message: 'Update property error',
+      error: err.message
+    });
   }
 };
 
