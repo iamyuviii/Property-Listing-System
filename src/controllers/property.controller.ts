@@ -1,6 +1,7 @@
 import Property from '../models/property.model';
 import { Request, Response } from 'express';
 import { pick } from '../utils/helpers';
+import { getRedis } from '../services/redis.service';
 
 const filterable = [
   'id','title','type','price','state','city','areaSqFt','bedrooms','bathrooms','amenities','furnished','availableFrom','listedBy','tags','colorTherm','rating','isVerified','listingType'
@@ -44,6 +45,15 @@ export const createProperty = async (req: any, res: Response) => {
     };
 
     const property = await Property.create(propertyData);
+
+    // Invalidate cache for list views after creating a new property
+    const redis = getRedis();
+    const cacheKeys = await redis.keys('properties:list:*');
+    if (cacheKeys.length > 0) {
+      await redis.del(...cacheKeys);
+      console.log(`Invalidated ${cacheKeys.length} property list cache keys`);
+    }
+
     res.status(201).json(property);
   } catch (err: any) {
     console.error('Create property error:', err);
@@ -55,7 +65,19 @@ export const createProperty = async (req: any, res: Response) => {
 };
 
 export const getProperties = async (req: Request, res: Response) => {
+  const redis = getRedis();
+  const cacheKey = `properties:list:${req.originalUrl}`;
+  const cacheTTL = 60; // Cache for 60 seconds
+
   try {
+    // Check cache first
+    const cachedProperties = await redis.get(cacheKey);
+    if (cachedProperties) {
+      console.log('Serving properties from cache');
+      return res.json(JSON.parse(cachedProperties));
+    }
+
+    // If not in cache, fetch from DB
     const {
       title,
       type,
@@ -143,7 +165,7 @@ export const getProperties = async (req: Request, res: Response) => {
       Property.countDocuments(filter)
     ]);
 
-    res.json({
+    const result = {
       properties,
       pagination: {
         total,
@@ -151,7 +173,13 @@ export const getProperties = async (req: Request, res: Response) => {
         limit: Number(limit),
         pages: Math.ceil(total / Number(limit))
       }
-    });
+    };
+
+    // Store result in cache
+    await redis.setex(cacheKey, cacheTTL, JSON.stringify(result));
+    console.log('Properties stored in cache');
+
+    res.json(result);
   } catch (err) {
     console.error('Get properties error:', err);
     res.status(500).json({ message: 'Get properties error' });
@@ -159,18 +187,42 @@ export const getProperties = async (req: Request, res: Response) => {
 };
 
 export const getProperty = async (req: Request, res: Response) => {
+  const redis = getRedis();
+  const cacheKey = `properties:single:${req.params.id}`;
+  const cacheTTL = 60; // Cache for 60 seconds
+
   try {
+    // Check cache first
+    const cachedProperty = await redis.get(cacheKey);
+    if (cachedProperty) {
+      console.log('Serving single property from cache');
+      return res.json(JSON.parse(cachedProperty));
+    }
+
+    // If not in cache, fetch from DB
     const property = await Property.findById(req.params.id);
-    if (!property) return res.status(404).json({ message: 'Not found' });
+
+    if (!property) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    // Store result in cache
+    await redis.setex(cacheKey, cacheTTL, JSON.stringify(property));
+    console.log('Single property stored in cache');
+
     res.json(property);
   } catch (err) {
+    console.error('Get property error:', err);
     res.status(500).json({ message: 'Get property error' });
   }
 };
 
 export const updateProperty = async (req: any, res: Response) => {
+  const redis = getRedis();
+  const propertyId = req.params.id;
+
   try {
-    const property = await Property.findById(req.params.id);
+    const property = await Property.findById(propertyId);
     if (!property) return res.status(404).json({ message: 'Not found' });
     if (property.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Forbidden' });
 
@@ -178,6 +230,15 @@ export const updateProperty = async (req: any, res: Response) => {
     Object.assign(property, req.body);
 
     await property.save();
+
+    // Invalidate cache for this single property and list views after update
+    await redis.del(`properties:single:${propertyId}`);
+    const cacheKeys = await redis.keys('properties:list:*');
+    if (cacheKeys.length > 0) {
+      await redis.del(...cacheKeys);
+      console.log(`Invalidated ${cacheKeys.length} property list cache keys after update`);
+    }
+
     res.json(property);
   } catch (err: any) {
     console.error('Update property error:', err);
@@ -189,13 +250,30 @@ export const updateProperty = async (req: any, res: Response) => {
 };
 
 export const deleteProperty = async (req: any, res: Response) => {
+  const redis = getRedis();
+  const propertyId = req.params.id;
+
   try {
-    const property = await Property.findById(req.params.id);
+    const property = await Property.findById(propertyId);
     if (!property) return res.status(404).json({ message: 'Not found' });
     if (property.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Forbidden' });
+
     await property.deleteOne();
+
+    // Invalidate cache for this single property and list views after deletion
+    await redis.del(`properties:single:${propertyId}`);
+    const cacheKeys = await redis.keys('properties:list:*');
+    if (cacheKeys.length > 0) {
+      await redis.del(...cacheKeys);
+      console.log(`Invalidated ${cacheKeys.length} property list cache keys after deletion`);
+    }
+
     res.json({ message: 'Deleted' });
-  } catch (err) {
-    res.status(400).json({ message: 'Delete property error' });
+  } catch (err: any) {
+    console.error('Delete property error:', err);
+    res.status(400).json({
+      message: 'Delete property error',
+      error: err.message
+    });
   }
 }; 
