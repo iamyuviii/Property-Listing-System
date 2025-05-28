@@ -41,7 +41,7 @@ export const importCSVIfNeeded = async () => {
               row.bathrooms = Number(row.bathrooms);
               row.rating = Number(row.rating);
               row.isVerified = row.isVerified === 'TRUE';
-              row.createdBy = systemUser._id; // Assign system user as creator
+              row.createdBy = systemUser._id; 
               await Property.create(row);
             }
             console.log('CSV import complete.');

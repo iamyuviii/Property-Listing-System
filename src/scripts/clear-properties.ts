@@ -7,7 +7,11 @@ dotenv.config();
 
 const clearProperties = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://hypergro:hypergro123@cluster0.mongodb.net/hypergro?retryWrites=true&w=majority');
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI environment variable is not set');
+    }
+    
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
     await Property.deleteMany({});

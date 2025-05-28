@@ -17,7 +17,7 @@ export const connectRedis = async () => {
 
     redis.on('connect', () => {
       console.log('Redis connected successfully');
-      // Test the connection
+
       redis?.set('test', 'Redis connection test')
         .then(() => redis?.get('test'))
         .then((result) => {

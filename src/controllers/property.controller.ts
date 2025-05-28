@@ -9,7 +9,6 @@ const filterable = [
 
 export const createProperty = async (req: any, res: Response) => {
   try {
-    // Validate required fields
     const requiredFields = ['title', 'type', 'price', 'state', 'city', 'areaSqFt', 'bedrooms', 'bathrooms'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
@@ -20,7 +19,6 @@ export const createProperty = async (req: any, res: Response) => {
       });
     }
 
-    // Validate numeric fields
     const numericFields = ['price', 'areaSqFt', 'bedrooms', 'bathrooms', 'rating'];
     const invalidNumericFields = numericFields.filter(field => 
       req.body[field] !== undefined && isNaN(Number(req.body[field]))
@@ -33,7 +31,6 @@ export const createProperty = async (req: any, res: Response) => {
       });
     }
 
-    // Convert numeric fields
     const propertyData = {
       ...req.body,
       price: Number(req.body.price),
@@ -67,19 +64,17 @@ export const createProperty = async (req: any, res: Response) => {
 export const getProperties = async (req: Request, res: Response) => {
   const redis = getRedis();
   const cacheKey = `properties:list:${req.originalUrl}`;
-  const cacheTTL = 60; // Cache for 60 seconds
+  const cacheTTL = 60; //redis Cache for 60 seconds
 
   try {
     console.log('Checking Redis cache for key:', cacheKey);
-    // Check cache first
     const cachedProperties = await redis.get(cacheKey);
     if (cachedProperties) {
       console.log('Cache HIT: Serving properties from Redis cache');
       return res.json(JSON.parse(cachedProperties));
     }
     console.log('Cache MISS: Properties not found in Redis cache');
-
-    // If not in cache, fetch from DB
+ 
     const {
       title,
       type,
@@ -107,7 +102,7 @@ export const getProperties = async (req: Request, res: Response) => {
       limit = 10
     } = req.query;
 
-    // Build filter object
+    //filter object
     const filter: any = {};
 
     // Text search
@@ -158,7 +153,6 @@ export const getProperties = async (req: Request, res: Response) => {
     // Pagination
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Execute query with pagination and sorting
     const [properties, total] = await Promise.all([
       Property.find(filter)
         .sort(sort)
