@@ -70,12 +70,14 @@ export const getProperties = async (req: Request, res: Response) => {
   const cacheTTL = 60; // Cache for 60 seconds
 
   try {
+    console.log('Checking Redis cache for key:', cacheKey);
     // Check cache first
     const cachedProperties = await redis.get(cacheKey);
     if (cachedProperties) {
-      console.log('Serving properties from cache');
+      console.log('Cache HIT: Serving properties from Redis cache');
       return res.json(JSON.parse(cachedProperties));
     }
+    console.log('Cache MISS: Properties not found in Redis cache');
 
     // If not in cache, fetch from DB
     const {
@@ -177,7 +179,7 @@ export const getProperties = async (req: Request, res: Response) => {
 
     // Store result in cache
     await redis.setex(cacheKey, cacheTTL, JSON.stringify(result));
-    console.log('Properties stored in cache');
+    console.log(`Cache SET: Properties stored in Redis cache with key ${cacheKey} for ${cacheTTL} seconds`);
 
     res.json(result);
   } catch (err) {
@@ -192,12 +194,14 @@ export const getProperty = async (req: Request, res: Response) => {
   const cacheTTL = 60; // Cache for 60 seconds
 
   try {
+    console.log('Checking Redis cache for key:', cacheKey);
     // Check cache first
     const cachedProperty = await redis.get(cacheKey);
     if (cachedProperty) {
-      console.log('Serving single property from cache');
+      console.log('Cache HIT: Serving single property from Redis cache');
       return res.json(JSON.parse(cachedProperty));
     }
+    console.log('Cache MISS: Single property not found in Redis cache');
 
     // If not in cache, fetch from DB
     const property = await Property.findById(req.params.id);
@@ -208,7 +212,7 @@ export const getProperty = async (req: Request, res: Response) => {
 
     // Store result in cache
     await redis.setex(cacheKey, cacheTTL, JSON.stringify(property));
-    console.log('Single property stored in cache');
+    console.log(`Cache SET: Single property stored in Redis cache with key ${cacheKey} for ${cacheTTL} seconds`);
 
     res.json(property);
   } catch (err) {
