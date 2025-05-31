@@ -7,11 +7,36 @@ export interface IUser extends Document {
   recommendationsReceived: mongoose.Types.ObjectId[];
 }
 
-const userSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  favorites: [{ type: Schema.Types.ObjectId, ref: 'Property' }],
-  recommendationsReceived: [{ type: Schema.Types.ObjectId, ref: 'Property' }],
-});
+const userSchema = new Schema<IUser>(
+  {
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true, // Normalize emails
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    favorites: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Property',
+      },
+    ],
+    recommendationsReceived: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Property',
+      },
+    ],
+  },
+  {
+    timestamps: true,       // Track user creation and update time
+    versionKey: false,      // Optional: removes __v field
+  }
+);
 
-export default mongoose.model<IUser>('User', userSchema); 
+export default mongoose.model<IUser>('User', userSchema);
